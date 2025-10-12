@@ -13,7 +13,7 @@ export const cacheMessage = async (chatId: string, message: IMessage) => {
     await redisClient.lTrim(key, 0, RECENT_MESSAGES_LIMIT - 1);
 
     // Set expiration if not already set
-    const ttl = await redisClient.ttl(key);
+    const ttl = await redisClient.ttl(key); // check current TTL
     if (ttl === -1) {
       await redisClient.expire(key, RECENT_MESSAGES_TTL);
     }

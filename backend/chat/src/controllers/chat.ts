@@ -287,6 +287,10 @@ export const getMessagesByChat = TryCatch(
     let messages = await getRecentMessages(chatId);
     if (!messages || messages.length === 0) {
       messages = await Messages.find({ chatId }).sort({ createdAt: 1 });
+      // Cache all messages in parallel for better performance
+      await Promise.all(
+        messages.map(msg => cacheMessage(chatId, msg))
+      ).catch(err => console.error('Failed to cache messages:', err));
     }
 
     const otherUserId = chat.users.find((id) => id !== userId);
