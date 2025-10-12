@@ -5,10 +5,16 @@ dotenv.config();
 
 export const startSendOtpConsumer = async () => {
   try {
-    // 🟢 Prefer a full connection URL if available
+    // 🟢 Determine protocol dynamically based on environment
+    const isProduction = process.env.NODE_ENV === "production";
+
+    const protocol = isProduction ? "amqps" : "amqp";
+    const defaultPort = isProduction ? 5671 : 5672;
+
+    // Prefer full connection URL if available
     const amqpUrl =
       process.env.RABBITMQ_URL ||
-      `amqps://${process.env.Rabbitmq_Username}:${process.env.Rabbitmq_Password}@${process.env.Rabbitmq_Host}:${process.env.Rabbitmq_Port || 5672}`;
+      `${protocol}://${process.env.Rabbitmq_Username}:${process.env.Rabbitmq_Password}@${process.env.Rabbitmq_Host}:${process.env.Rabbitmq_Port || defaultPort}`;
 
     const connection = await amqp.connect(amqpUrl);
     const channel = await connection.createChannel();
