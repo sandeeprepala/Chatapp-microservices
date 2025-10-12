@@ -5,57 +5,82 @@ dotenv.config();
 
 export const startSendOtpConsumer = async () => {
   try {
-    // -------------------------------
-    // 1️⃣ Determine RabbitMQ URL
-    // -------------------------------
-    // Prefer full URL if provided
     let amqpUrl = process.env.RABBITMQ_URL;
-
-    // If URL is not provided, build from individual env vars
     if (!amqpUrl) {
-      const isProduction = process.env.NODE_ENV === "production";
-      const protocol = isProduction ? "amqps" : "amqp";
-      const port = process.env.Rabbitmq_Port || (protocol === "amqps" ? 5671 : 5672);
-
-      amqpUrl = `${protocol}://${process.env.Rabbitmq_Username}:${process.env.Rabbitmq_Password}@${process.env.Rabbitmq_Host}:${port}`;
+      throw new Error("RABBITMQ_URL must be set in environment");
     }
 
-    console.log("🐇 Connecting to RabbitMQ at:", amqpUrl);
+    // Verify mail configuration
+    if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
+      throw new Error("MAIL_USER and MAIL_PASS must be set in environment");
+    }
 
-    // -------------------------------
-    // 2️⃣ Connect to RabbitMQ
-    // -------------------------------
-    const connection = await amqp.connect(amqpUrl,{
-      servername: new URL(amqpUrl).hostname,
+    // Parse the URL to extract components
+    const parsedUrl = new URL(amqpUrl);
+    const virtualHost = parsedUrl.pathname.slice(1) || process.env.RABBITMQ_VHOST || 'vhost';
+    
+    // Ensure URL has virtualhost
+    const fullUrl = amqpUrl.includes(virtualHost) ? amqpUrl : `${amqpUrl}/${virtualHost}`;
+    
+    console.log("🐇 Connecting to RabbitMQ at:", fullUrl.replace(/:.*@/, ':***@'));
+
+    const connection = await amqp.connect(fullUrl, {
+      servername: parsedUrl.hostname,
     });
+
+    // Handle connection events
+    connection.on('error', (err) => {
+      console.error('❌ RabbitMQ connection error:', err);
+    });
+
+    connection.on('close', () => {
+      console.warn('⚠️ RabbitMQ connection closed, attempting to reconnect in 5s...');
+      setTimeout(() => startSendOtpConsumer(), 5000);
+    });
+
     const channel = await connection.createChannel();
+    
+    // Handle channel events
+    channel.on('error', (err) => {
+      console.error('❌ RabbitMQ channel error:', err);
+    });
+
+    channel.on('close', () => {
+      console.warn('⚠️ RabbitMQ channel closed');
+    });
 
     const queueName = "send-otp";
     await channel.assertQueue(queueName, { durable: true });
+    
+    // Prefetch only one message at a time
+    await channel.prefetch(1);
 
     console.log("✅ Mail Service consumer started, listening for OTP emails");
 
-    // -------------------------------
-    // 3️⃣ Consume messages
-    // -------------------------------
+    // Create mail transporter once
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+
+    // Verify mail connection on startup
+    await transporter.verify();
+    console.log('✅ SMTP connection verified');
+
     channel.consume(queueName, async (msg) => {
       if (!msg) return;
 
       try {
         const { to, subject, body } = JSON.parse(msg.content.toString());
-
-        const transporter = nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
-          auth: {
-            user: process.env.MAIL_USER,
-            pass: process.env.MAIL_PASS,
-          },
-        });
+        console.log(`📨 Processing mail request to ${to}`);
 
         await transporter.sendMail({
-          from: "Chat App <no-reply@chatapp.com>",
+          from: process.env.MAIL_USER, // Use authenticated Gmail address
           to,
           subject,
           text: body,
@@ -63,8 +88,14 @@ export const startSendOtpConsumer = async () => {
 
         console.log(`📩 OTP mail sent to ${to}`);
         channel.ack(msg);
-      } catch (error) {
+      } catch (err) {
+        const error = err as Error & { code?: string };
         console.error("❌ Failed to send OTP:", error);
+        // Only requeue if it might succeed on retry
+        const shouldRequeue = error.code === 'ECONNRESET' || 
+                            error.code === 'ETIMEDOUT' ||
+                            error.message.includes('timeout');
+        channel.nack(msg, false, shouldRequeue);
       }
     });
   } catch (error) {
