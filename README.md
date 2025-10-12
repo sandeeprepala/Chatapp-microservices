@@ -1,6 +1,6 @@
-# 💬 Chatify — Real-time Scalable Chat Application (Microservices Architecture)
+# 💬 Connect — Real-time Scalable Chat Application (Microservices Architecture)
 
-**Chatify** is a fully functional **real-time chat application** built using **Next.js**, **Node.js**, **Socket.IO**, **MongoDB**, **Redis**, and **RabbitMQ**.  
+**Connect** is a fully functional **real-time chat application** built using **Next.js**, **Node.js**, **Socket.IO**, **MongoDB**, **Redis**, and **RabbitMQ**.  
 It follows a **microservices architecture**, demonstrating real-world concepts like async communication, event-driven design, caching, and secure authentication.
 
 ---
