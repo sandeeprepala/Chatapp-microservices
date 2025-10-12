@@ -46,7 +46,7 @@ const LoginPage = () => {
               <Mail size={40} className="text-white" />
             </div>
             <h1 className="text-4xl font-bold text-white mb-3">
-              Welcome To ChatApp
+              Welcome To Connect
             </h1>
             <p className="text-gray-300 text-lg">
               Enter your email to continue your journey
