@@ -36,6 +36,7 @@
     "@types/mongoose": "^5.11.96",
     "@types/multer": "^2.0.0",
     "@types/redis": "^4.0.10",
-    "@types/socket.io": "^3.0.1"
+    "@types/socket.io": "^3.0.1",
+    "typescript": "^5.9.3"
   }
 }
