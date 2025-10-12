@@ -1,34 +1,35 @@
 import amql from "amqplib";
 
-let channel: amql.Channel;
+let channel: amql.Channel | null = null;
 
 export const connectRabbitMQ = async () => {
   try {
-    const connection = await amql.connect({
-      protocol: "amqp",
-      hostname: process.env.Rabbitmq_Host,
-      port: 5672,
-      username: process.env.Rabbitmq_Username,
-      password: process.env.Rabbitmq_Password,
-    });
+    if (!process.env.RABBITMQ_URL) {
+      throw new Error("RABBITMQ_URL is not defined in .env");
+    }
 
+    const connection = await amql.connect(process.env.RABBITMQ_URL);
     channel = await connection.createChannel();
 
-    console.log("✅ connected to rabbitmq");
+    console.log("✅ Connected to RabbitMQ successfully");
   } catch (error) {
-    console.log("Failed to connect to rabbitmq", error);
+    console.error("❌ Failed to connect to RabbitMQ:", error);
   }
 };
 
 export const publishToQueue = async (queueName: string, message: any) => {
   if (!channel) {
-    console.log("Rabbitmq channel is not initalized");
+    console.error("❌ RabbitMQ channel is not initialized. Call connectRabbitMQ() first.");
     return;
   }
 
-  await channel.assertQueue(queueName, { durable: true });
-
-  channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
-    persistent: true,
-  });
+  try {
+    await channel.assertQueue(queueName, { durable: true });
+    channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
+      persistent: true,
+    });
+    console.log(`📤 Message sent to queue: ${queueName}`);
+  } catch (error) {
+    console.error(`❌ Failed to publish message to queue "${queueName}":`, error);
+  }
 };
