@@ -156,8 +156,8 @@ const ChatSidebar = ({
                   }}
                   className={`w-full text-left p-4 rounded-lg transition-colors ${
                     isSelected
-                      ? "bg-blue-600 border border-blue-500"
-                      : "border border-gray-700 hover:border-gray-600"
+                      ? "bg-blue-700 border border-blue-500"
+                      : "bg-gray-800 border border-gray-700 hover:border-gray-600"
                   }`}
                 >
                   <div className="flex items-center gap-3">
