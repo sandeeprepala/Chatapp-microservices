@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+
+  user-service:
+    build: ./backend/user
+    env_file: ./backend/user/.env
+    depends_on:
+      - rabbitmq
+    ports:
+      - '5001:5001'
+
+  chat-service:
+    build: ./backend/chat
+    env_file: ./backend/chat/.env
+    depends_on:
+    ports:
+      - '5002:5002'
+
+  mail-service:
+    build: ./backend/mail
+    env_file: ./backend/mail/.env
+    depends_on:
+      - rabbitmq
+    ports:
+      - '5003:5003'
+
+  frontend:
+    build: ./frontend
+    env_file: ./frontend/.env
+    depends_on:
+      - user-service
+      - chat-service
+    ports:
+      - '3000:3000'
+
+volumes:
+
+# Note: this compose file does not create local MongoDB or Redis instances.
+# If you're using Upstash (managed Redis), set REDIS_URL in each service's .env to the Upstash `rediss://...` value
+# Example (in backend/user/.env or backend/chat/.env):
+# REDIS_URL=rediss://:<token>@<your-upstash-host>:6380
+# You can also add REDIS_CONNECT_TIMEOUT, REDIS_TLS, and REDIS_ALLOW_SELF_SIGNED flags as needed by your client code.
+#
+# If you're using MongoDB Atlas, set MONGO_URI in each service's .env to the Atlas connection string.
+# Example Atlas connection string (replace <user>,<password>,<cluster-url>, and <dbname>):
+# MONGO_URI=mongodb+srv://<user>:<password>@<cluster-url>/<dbname>?retryWrites=true&w=majority
