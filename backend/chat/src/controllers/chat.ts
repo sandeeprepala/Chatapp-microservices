@@ -285,6 +285,7 @@ export const getMessagesByChat = TryCatch(
     );
 
     let messages = await getRecentMessages(chatId);
+    messages = messages.reverse();
 
     if (!messages || messages.length === 0) {
       messages = await Messages.find({ chatId }).sort({ createdAt: 1 });
