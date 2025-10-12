@@ -1,23 +1,15 @@
-# Build stage
-FROM node:18-alpine AS builder
+FROM node:18 AS builder
 WORKDIR /app
-
-# Install build tools
-RUN apk add --no-cache python3 g++ make
-
 COPY package*.json ./
-RUN npm ci
-
+RUN npm install
 COPY . .
 RUN npm run build
 
-# Production stage
-FROM node:18-alpine
+FROM node:18
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
-
 EXPOSE 4000
 ENV PORT=4000
 CMD ["node", "dist/index.js"]
