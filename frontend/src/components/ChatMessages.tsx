@@ -151,9 +151,9 @@ const ChatMessages = ({
                         {isSentByMe && (
                           <div className="flex items-center">
                             {e.seen ? (
-                              <CheckCheck className="w-3 h-3 text-blue-400" title={`Seen at ${moment(e.seenAt).format("hh:mm A")}`} />
+                              <CheckCheck className="w-3 h-3 text-blue-400" aria-label={`Seen at ${moment(e.seenAt).format("hh:mm A")}`} />
                             ) : (
-                              <Check className="w-3 h-3 text-gray-500" title="Sent" />
+                              <Check className="w-3 h-3 text-gray-500" aria-label="Sent" />
                             )}
                           </div>
                         )}
