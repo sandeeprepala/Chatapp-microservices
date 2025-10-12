@@ -13,14 +13,14 @@ services:
     depends_on:
       - rabbitmq
     ports:
-      - '5001:5001'
+      - '4000:4000'
 
   chat-service:
     build: ./backend/chat
     env_file: ./backend/chat/.env
     depends_on:
     ports:
-      - '5002:5002'
+      - '4002:4002'
 
   mail-service:
     build: ./backend/mail
@@ -28,7 +28,7 @@ services:
     depends_on:
       - rabbitmq
     ports:
-      - '5003:5003'
+      - '4001:4001'
 
   frontend:
     build: ./frontend
