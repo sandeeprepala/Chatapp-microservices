@@ -23,6 +23,7 @@ This project demonstrates **scalable backend design** and **modern full-stack de
 
 ![Architecture Diagram](assets/architecture.png)
 
+
 ---
 
 ## ⚙️ Tech Stack
