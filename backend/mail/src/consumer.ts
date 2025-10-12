@@ -5,21 +5,18 @@ dotenv.config();
 
 export const startSendOtpConsumer = async () => {
   try {
-    const connection = await amqp.connect({
-      protocol: "amqp",
-      hostname: process.env.Rabbitmq_Host,
-      port: 5672,
-      username: process.env.Rabbitmq_Username,
-      password: process.env.Rabbitmq_Password,
-    });
+    // 🟢 Prefer a full connection URL if available
+    const amqpUrl =
+      process.env.RABBITMQ_URL ||
+      `amqps://${process.env.Rabbitmq_Username}:${process.env.Rabbitmq_Password}@${process.env.Rabbitmq_Host}:${process.env.Rabbitmq_Port || 5672}`;
 
+    const connection = await amqp.connect(amqpUrl);
     const channel = await connection.createChannel();
 
     const queueName = "send-otp";
-
     await channel.assertQueue(queueName, { durable: true });
 
-    console.log("✅ Mail Service consumer started, listening for otp emails");
+    console.log("✅ Mail Service consumer started, listening for OTP emails");
 
     channel.consume(queueName, async (msg) => {
       if (msg) {
@@ -29,7 +26,7 @@ export const startSendOtpConsumer = async () => {
           const transporter = nodemailer.createTransport({
             host: "smtp.gmail.com",
             port: 465,
-            secure: true, //for aws
+            secure: true,
             auth: {
               user: process.env.MAIL_USER,
               pass: process.env.MAIL_PASS,
@@ -37,20 +34,20 @@ export const startSendOtpConsumer = async () => {
           });
 
           await transporter.sendMail({
-            from: "Chat app",
+            from: "Chat App <no-reply@chatapp.com>",
             to,
             subject,
             text: body,
           });
 
-          console.log(`OTP mail sent to ${to}`);
+          console.log(`📩 OTP mail sent to ${to}`);
           channel.ack(msg);
         } catch (error) {
-          console.log("Failed to send otp", error);
+          console.error("❌ Failed to send OTP:", error);
         }
       }
     });
   } catch (error) {
-    console.log("Failed to start rabbitmq consumer", error);
+    console.error("❌ Failed to start RabbitMQ consumer:", error);
   }
 };
