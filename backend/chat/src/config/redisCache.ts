@@ -27,7 +27,8 @@ export const getRecentMessages = async (chatId: string): Promise<IMessage[]> => 
   try {
     const key = `chat:${chatId}:recentMessages`;
     const messages = await redisClient.lRange(key, 0, -1);
-    return messages.map((msg) => JSON.parse(msg));
+    // Reverse the messages to get chronological order (oldest first)
+    return messages.map((msg) => JSON.parse(msg)).reverse();
   } catch (err) {
     console.error("Redis getRecentMessages error:", err);
     return [];
