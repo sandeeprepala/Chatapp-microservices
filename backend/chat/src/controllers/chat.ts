@@ -5,6 +5,7 @@ import { Chat } from "../models/Chat.js";
 import { Messages } from "../models/Messages.js";
 import { getRecieverSocketId } from "../config/socket.js";
 import { io } from "../config/socket.js";
+import { cacheMessage ,getRecentMessages} from "../config/redisCache.js";
 
 export const createNewChat = TryCatch(
   async (req: AuthenticatedRequest, res) => {
@@ -184,6 +185,8 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res) => {
 
   const savedMessage = await message.save();
 
+  await cacheMessage(chatId,savedMessage); // storing in redis for fast retriveal of messages
+
   const latestMessageText = imageFile ? "📷 Image" : text;
 
   await Chat.findByIdAndUpdate(
@@ -281,7 +284,11 @@ export const getMessagesByChat = TryCatch(
       }
     );
 
-    const messages = await Messages.find({ chatId }).sort({ createdAt: 1 });
+    let messages = await getRecentMessages(chatId);
+
+    if (!messages || messages.length === 0) {
+      messages = await Messages.find({ chatId }).sort({ createdAt: 1 });
+    }
 
     const otherUserId = chat.users.find((id) => id !== userId);
 
