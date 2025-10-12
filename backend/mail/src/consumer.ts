@@ -25,7 +25,9 @@ export const startSendOtpConsumer = async () => {
     // -------------------------------
     // 2️⃣ Connect to RabbitMQ
     // -------------------------------
-    const connection = await amqp.connect(amqpUrl);
+    const connection = await amqp.connect(amqpUrl,{
+      servername: new URL(amqpUrl).hostname,
+    });
     const channel = await connection.createChannel();
 
     const queueName = "send-otp";
