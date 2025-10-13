@@ -89,13 +89,20 @@ export const startSendOtpConsumer = async () => {
         console.log(`📩 OTP mail sent to ${to}`);
         channel.ack(msg);
       } catch (err) {
-        const error = err as Error & { code?: string };
-        console.error("❌ Failed to send OTP:", error);
-        // Only requeue if it might succeed on retry
-        const shouldRequeue = error.code === 'ECONNRESET' || 
-                            error.code === 'ETIMEDOUT' ||
-                            error.message.includes('timeout');
-        channel.nack(msg, false, shouldRequeue);
+        const error = err as any;
+        console.error("❌ Failed to send OTP:", error?.stack || error);
+
+        // Requeue policy: default to requeue when debugging or on transient errors
+        const transient = (error && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || (error.message && error.message.includes('timeout'))));
+        const forceRequeue = process.env.REQUEUE_ON_ERROR === 'true';
+        const shouldRequeue = forceRequeue || transient;
+
+        try {
+          channel.nack(msg, false, shouldRequeue);
+          console.log(`🔁 Message nacked (requeue=${shouldRequeue})`);
+        } catch (nackErr) {
+          console.error('❌ Failed to nack message:', nackErr);
+        }
       }
     });
   } catch (error) {
