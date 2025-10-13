@@ -49,7 +49,7 @@ export const startSendOtpConsumer = async () => {
       console.warn('⚠️ RabbitMQ channel closed');
     });
 
-    const queueName = "send-otp";
+    const queueName = "send-otp1";
     await channel.assertQueue(queueName, { durable: true });
     
     // Prefetch only one message at a time
