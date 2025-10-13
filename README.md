@@ -64,7 +64,8 @@ This project demonstrates **scalable backend design** and **modern full-stack de
 
 ### ⚡ Redis Cache
 - Stores OTPs temporarily.
-- Implements request **rate limiting**.
+- Implements request **rate limiting** for otp generation.
+- Stores chat messages for 24hrs in redis.
 
 ---
 
@@ -72,16 +73,9 @@ This project demonstrates **scalable backend design** and **modern full-stack de
 - 🔥 Real-time chat via Socket.IO
 - 🔐 Secure OTP-based login
 - 📨 Asynchronous email delivery with RabbitMQ
-- 💾 Redis for OTP caching and rate-limiting
+- 💾 Redis for OTP caching, rate-limiting, and storing recent chat messages.
 - 💬 Persistent chats in MongoDB
 - 🧱 Modular microservice architecture
 - 🧠 JWT authentication
 
 ---
-
-## 🧑‍💻 Local Setup
-
-### 1️⃣ Clone Repository
-```bash
-git clone https://github.com/<your-username>/chatify.git
-cd chatify
