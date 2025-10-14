@@ -1,14 +1,19 @@
-import express from "express"
-import dotenv from "dotenv"
-import { startSendOtpConsumer } from "./consumer.js"
+import express from "express";
+import dotenv from "dotenv";
+import { startSendOtpConsumer } from "./consumer.js"; // your RabbitMQ consumer
 
-dotenv.config()
+dotenv.config();
 
-startSendOtpConsumer()
+// 1️⃣ Start the RabbitMQ consumer
+startSendOtpConsumer();
 
-const app = express()
+// 2️⃣ Create Express app for health check
+const app = express();
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+app.get("/health", (req, res) => res.send("OK"));
+
+// 3️⃣ Start Express server
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Mail Service running on port ${PORT} (health endpoint active)`);
 });
-
