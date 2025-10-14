@@ -14,6 +14,9 @@ import toast, { Toaster } from "react-hot-toast";
 export const user_service = "https://chatapp-user-microservice.onrender.com";
 export const chat_service = "https://chatapp-chat-microservice.onrender.com";
 
+// export const user_service = "http://localhost:4000";
+// export const chat_service = "http://localhost:4002";
+
 export interface User {
   _id: string;
   name: string;

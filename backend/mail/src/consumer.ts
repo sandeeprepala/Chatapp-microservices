@@ -3,109 +3,86 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 dotenv.config();
 
+const QUEUE_NAME = "send-otp";
+
+let reconnectTimeout = 5000;
+let shuttingDown = false;
+
 export const startSendOtpConsumer = async () => {
-  try {
-    let amqpUrl = process.env.RABBITMQ_URL;
-    if (!amqpUrl) {
-      throw new Error("RABBITMQ_URL must be set in environment");
-    }
+  while (!shuttingDown) {
+    try {
+      const amqpUrl = process.env.RABBITMQ_URL;
+      if (!amqpUrl) throw new Error("RABBITMQ_URL must be set in environment");
 
-    // Verify mail configuration
-    if (!process.env.MAIL_USER || !process.env.MAIL_PASS) {
-      throw new Error("MAIL_USER and MAIL_PASS must be set in environment");
-    }
+      const connection = await amqp.connect(amqpUrl, {
+        heartbeat: 30, // keep connection alive every 30s
+      });
 
-    // Parse the URL to extract components
-    const parsedUrl = new URL(amqpUrl);
-    const virtualHost = parsedUrl.pathname.slice(1) || process.env.RABBITMQ_VHOST || 'vhost';
-    
-    // Ensure URL has virtualhost
-    const fullUrl = amqpUrl.includes(virtualHost) ? amqpUrl : `${amqpUrl}/${virtualHost}`;
-    
-    console.log("🐇 Connecting to RabbitMQ at:", fullUrl.replace(/:.*@/, ':***@'));
+      console.log("✅ Connected to RabbitMQ");
 
-    const connection = await amqp.connect(fullUrl, {
-      servername: parsedUrl.hostname,
-    });
+      const channel = await connection.createChannel();
+      await channel.assertQueue(QUEUE_NAME, { durable: true });
+      await channel.prefetch(1);
 
-    // Handle connection events
-    connection.on('error', (err) => {
-      console.error('❌ RabbitMQ connection error:', err);
-    });
+      console.log("📨 Listening for messages on", QUEUE_NAME);
 
-    connection.on('close', () => {
-      console.warn('⚠️ RabbitMQ connection closed, attempting to reconnect in 5s...');
-      setTimeout(() => startSendOtpConsumer(), 5000);
-    });
+      // Create one transporter for Gmail
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
+        },
+      });
 
-    const channel = await connection.createChannel();
-    
-    // Handle channel events
-    channel.on('error', (err) => {
-      console.error('❌ RabbitMQ channel error:', err);
-    });
+      await transporter.verify();
+      console.log("✅ SMTP verified");
 
-    channel.on('close', () => {
-      console.warn('⚠️ RabbitMQ channel closed');
-    });
+      connection.on("close", () => {
+        console.warn("⚠️ RabbitMQ connection closed. Reconnecting in 5s...");
+        setTimeout(() => startSendOtpConsumer(), reconnectTimeout);
+      });
 
-    const queueName = "send-otp";
-    await channel.assertQueue(queueName, { durable: true });
-    
-    // Prefetch only one message at a time
-    await channel.prefetch(1);
+      connection.on("error", (err) => {
+        console.error("❌ RabbitMQ connection error:", err);
+      });
 
-    console.log("✅ Mail Service consumer started, listening for OTP emails");
-
-    // Create mail transporter once
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
-    });
-
-    // Verify mail connection on startup
-    await transporter.verify();
-    console.log('✅ SMTP connection verified');
-
-    channel.consume(queueName, async (msg) => {
-      if (!msg) return;
-
-      try {
-        const { to, subject, body } = JSON.parse(msg.content.toString());
-        console.log(`📨 Processing mail request to ${to}`);
-
-        await transporter.sendMail({
-          from: process.env.MAIL_USER, // Use authenticated Gmail address
-          to,
-          subject,
-          text: body,
-        });
-
-        console.log(`📩 OTP mail sent to ${to}`);
-        channel.ack(msg);
-      } catch (err) {
-        const error = err as any;
-        console.error("❌ Failed to send OTP:", error?.stack || error);
-
-        // Requeue policy: default to requeue when debugging or on transient errors
-        const transient = (error && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || (error.message && error.message.includes('timeout'))));
-        const forceRequeue = process.env.REQUEUE_ON_ERROR === 'true';
-        const shouldRequeue = forceRequeue || transient;
-
+      channel.consume(QUEUE_NAME, async (msg) => {
+        if (!msg) return;
         try {
-          channel.nack(msg, false, shouldRequeue);
-          console.log(`🔁 Message nacked (requeue=${shouldRequeue})`);
-        } catch (nackErr) {
-          console.error('❌ Failed to nack message:', nackErr);
+          const { to, subject, body } = JSON.parse(msg.content.toString());
+          console.log(`📩 Sending OTP mail to ${to}`);
+
+          await transporter.sendMail({
+            from: process.env.MAIL_USER,
+            to,
+            subject,
+            text: body,
+          });
+
+          console.log(`✅ Mail sent to ${to}`);
+          channel.ack(msg);
+        } catch (err) {
+          console.error("❌ Error processing message:", err);
+          channel.nack(msg, false, false);
         }
-      }
-    });
-  } catch (error) {
-    console.error("❌ Failed to start RabbitMQ consumer:", error);
+      });
+
+      process.on("SIGTERM", async () => {
+        shuttingDown = true;
+        console.log("🛑 Gracefully shutting down...");
+        await channel.close();
+        await connection.close();
+        process.exit(0);
+      });
+
+      // Prevent premature exit
+      await new Promise(() => {});
+    } catch (err) {
+      console.error("❌ Consumer failed, retrying in 5s:", err);
+      await new Promise((res) => setTimeout(res, reconnectTimeout));
+    }
   }
 };
