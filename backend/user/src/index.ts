@@ -5,13 +5,13 @@ import userRoute from "./routes/user.js";
 import cors from "cors"
 
 import { createClient } from "redis";
-import { connectRabbitMQ } from "./config/rabbitmq.js";
+// import { connectRabbitMQ } from "./config/rabbitmq.js";
 
 dotenv.config();
 
 connectDb();
 
-connectRabbitMQ();
+// connectRabbitMQ();
 
 if (!process.env.REDIS_URL) {
   throw new Error("REDIS_URL environment variable is not set");

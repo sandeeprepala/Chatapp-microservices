@@ -1,11 +1,11 @@
 import express from "express";
 import dotenv from "dotenv";
-import { startSendOtpConsumer } from "./consumer.js"; // your RabbitMQ consumer
+import { startSendOtpConsumer } from "./consumer.js"; // Redis consumer
 
 dotenv.config();
 
-// 1️⃣ Start the RabbitMQ consumer
-startSendOtpConsumer();
+// 1️⃣ Start the Redis OTP consumer
+startSendOtpConsumer(); 
 
 // 2️⃣ Create Express app for health check
 const app = express();
