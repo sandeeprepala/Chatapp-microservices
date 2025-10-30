@@ -4,14 +4,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  host: "smtp.sendgrid.net",
+  port: 587, // or 2525
   auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
+    user: "Connect",
+    pass: process.env.SENDGRID_API_KEY,
   },
 });
+
 
 export const startSendOtpConsumer = async() => {
   console.log("📨 Mail consumer started, waiting for OTP messages...");
