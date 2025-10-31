@@ -5,24 +5,21 @@ dotenv.config();
 
 const transporter = nodemailer.createTransport({
   host: "smtp.sendgrid.net",
-  port: 587, // or 2525
+  port: 587,
   auth: {
     user: "apikey",
     pass: process.env.SENDGRID_API_KEY,
   },
 });
 
-
-export const startSendOtpConsumer = async() => {
+export const startSendOtpConsumer = async () => {
   console.log("📨 Mail consumer started, waiting for OTP messages...");
 
   while (true) {
     try {
-      const msg = await redisClient.rPop("send-otp"); // fetch one message
-      if (!msg) {
-        await new Promise((res) => setTimeout(res, 2000)); // wait 2s if empty
-        continue;
-      }
+      const data = await redisClient.blPop(["send-otp"], 0);
+      const msg = data?.element;
+      if (!msg) continue;
 
       const { to, subject, body } = JSON.parse(msg);
       console.log(`📩 Sending OTP mail to ${to}`);
@@ -39,9 +36,9 @@ export const startSendOtpConsumer = async() => {
       console.error("❌ Error processing OTP message:", err);
     }
   }
-}
+};
 
-// Optional graceful shutdown
+// Graceful shutdown
 process.on("SIGTERM", () => {
   console.log("🛑 Shutting down mail consumer...");
   process.exit(0);

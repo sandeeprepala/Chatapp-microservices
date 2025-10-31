@@ -12,6 +12,7 @@ startSendOtpConsumer();
 const app = express();
 
 app.get("/health", (req, res) => res.send("OK"));
+app.get("/",(req, res) => res.send("Mail service running"))
 
 // 3️⃣ Start Express server
 const PORT = process.env.PORT || 4000;
