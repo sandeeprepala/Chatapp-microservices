@@ -21,10 +21,11 @@ app.listen(PORT, () => {
 
   setInterval(async () => {
     try {
+      // Keep the service alive with more frequent pings
       await axios.get(`https://chatapp-mail-microservice.onrender.com/health`);
-      console.log("Self-ping successful ✅");
-    } catch (err) {
-      console.error("Self-ping failed ❌");
+      console.log(`Self-ping successful ✅ [${new Date().toISOString()}]`);
+    } catch (error: any) {
+      console.error(`Self-ping failed ❌ [${new Date().toISOString()}]:`, error.message);
     }
-  }, 5 * 60 * 1000); // every 5 minutes
+  }, 10 * 60 * 1000); // ping every 10 minutes to stay within free tier limits but before shutdown
 });

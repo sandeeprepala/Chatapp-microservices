@@ -4,6 +4,75 @@ import { publishToQueue } from "../config/rabbitmq.js";
 import { User } from "../model/User.js";
 import { generateToken } from "../config/generateToken.js";
 import type { AuthenticatedRequest } from "../middlewares/isAuth.js";
+import bcrypt from "bcryptjs";
+
+export const registerWithPassword = TryCatch(async (req, res) => {
+    const { email, password, name } = req.body;
+
+    if (!email || !password) {
+        res.status(400).json({
+            message: "Email and password are required"
+        });
+        return;
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        res.status(400).json({
+            message: "User already exists"
+        });
+        return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+        name: name || email.slice(0, 8),
+        email,
+        password: hashedPassword,
+        loginType: 'password'
+    });
+
+    const token = generateToken(user);
+    res.status(201).json({
+        message: "User registered successfully",
+        user,
+        token
+    });
+});
+
+export const loginWithPassword = TryCatch(async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        res.status(400).json({
+            message: "Email and password are required"
+        });
+        return;
+    }
+
+    const user = await User.findOne({ email });
+    if (!user || user.loginType !== 'password' || !user.password) {
+        res.status(401).json({
+            message: "Invalid credentials"
+        });
+        return;
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+        res.status(401).json({
+            message: "Invalid credentials"
+        });
+        return;
+    }
+
+    const token = generateToken(user);
+    res.json({
+        message: "Login successful",
+        user,
+        token
+    });
+});
 
 export const loginUser = TryCatch(async(req,res)=>{
     const {email} = req.body;
