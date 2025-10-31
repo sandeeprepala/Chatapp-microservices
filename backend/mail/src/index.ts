@@ -13,27 +13,54 @@ const app = express();
 
 import monitorRoutes from './routes/monitor.js';
 
-app.use('/monitor', monitorRoutes);
+// Basic health check endpoints
+app.get('/health', (req, res) => {
+  res.send('OK');
+});
+
 app.get("/", (req, res) => res.send("Mail service running"));
+
+// Monitoring routes
+app.use('/monitor', monitorRoutes);
 
 // Track service health
 let lastSuccessfulPing = Date.now();
 let consecutiveFailures = 0;
 
-// Service URLs - adjust these to your actual URLs
-const MAIL_SERVICE_URL = process.env.MAIL_SERVICE_URL || 'https://chatapp-mail-microservice.onrender.com';
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'https://chatapp-user-microservice.onrender.com';
+// Service URLs for different environments
+const isProd = process.env.NODE_ENV === 'production';
+const MAIL_SERVICE_URL = isProd 
+  ? 'https://chatapp-mail-microservice.onrender.com'
+  : 'http://localhost:4001';
+const USER_SERVICE_URL = isProd
+  ? 'https://chatapp-user-microservice.onrender.com'
+  : 'http://localhost:4000';
 
 // Keep-alive function with cross-service pinging
 async function keepAlive() {
   try {
-    // Ping our own health endpoint
-    await axios.get(`${MAIL_SERVICE_URL}/monitor/health`);
+    if (isProd) {
+      // In production, just ping our own service to keep it alive
+      await axios.get(`${MAIL_SERVICE_URL}/health`);
+      console.log(`✅ Mail service self-ping successful [${new Date().toISOString()}]`);
+    } else {
+      // In development, check all services
+      try {
+        await axios.get(`${MAIL_SERVICE_URL}/health`);
+        console.log(`✅ Mail service health check successful [${new Date().toISOString()}]`);
+      } catch (mailError: any) {
+        console.error(`⚠️ Mail service health check failed:`, mailError.message);
+      }
+      
+      try {
+        await axios.get(`${USER_SERVICE_URL}/health`);
+        console.log(`✅ User service health check successful [${new Date().toISOString()}]`);
+      } catch (userError: any) {
+        console.error(`⚠️ User service health check failed:`, userError.message);
+      }
+    }
     
-    // Also ping the user service to keep it alive (they depend on each other)
-    await axios.get(`${USER_SERVICE_URL}/health`);
-    
-    console.log(`✅ Services ping successful [${new Date().toISOString()}]`);
+    console.log(`✅ Services ping cycle completed [${new Date().toISOString()}]`);
     lastSuccessfulPing = Date.now();
     consecutiveFailures = 0;
   } catch (error: any) {
@@ -60,17 +87,20 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Mail Service running on port ${PORT} (monitoring active)`);
 
-  // Primary keep-alive interval (every 12 minutes)
-  setInterval(keepAlive, 12 * 60 * 1000);
+    // More frequent pings in production to prevent Render from sleeping
+  const pingInterval = isProd ? 5 * 60 * 1000 : 12 * 60 * 1000; // 5 minutes in prod, 12 in dev
+  setInterval(keepAlive, pingInterval);
   
-  // Secondary shorter interval when we detect issues
-  setInterval(() => {
-    const timeSinceLastSuccess = Date.now() - lastSuccessfulPing;
-    if (timeSinceLastSuccess > 10 * 60 * 1000) { // If no success for 10 minutes
-      console.log('⚠️ Long time since last successful ping, running additional health check...');
-      keepAlive();
-    }
-  }, 5 * 60 * 1000); // Check every 5 minutes
+  if (!isProd) {
+    // Additional health checks only in development
+    setInterval(() => {
+      const timeSinceLastSuccess = Date.now() - lastSuccessfulPing;
+      if (timeSinceLastSuccess > 10 * 60 * 1000) {
+        console.log('⚠️ Long time since last successful ping, running additional health check...');
+        keepAlive();
+      }
+    }, 5 * 60 * 1000);
+  }
   
   // Initial keep-alive
   keepAlive();
